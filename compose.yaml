@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: fitschedule-db
+    environment:
+      POSTGRES_DB: fitschedule
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      # monte o volume na raiz do Postgres, não no "data"
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d fitschedule"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fitschedule-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fitschedule-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fitschedule
+      SPRING_DATASOURCE_USERNAME: myuser
+      SPRING_DATASOURCE_PASSWORD: secret
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - fitschedule-network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: fitschedule-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8081:80"  # acesse no navegador via localhost:8081
+    depends_on:
+      - postgres
+    networks:
+      - fitschedule-network
+
+volumes:
+  postgres_data:
+
+networks:
+  fitschedule-network:
+    driver: bridge
